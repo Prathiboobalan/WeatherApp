@@ -1,0 +1,226 @@
+﻿@page "/weather"
+@using MudBlazor
+@using BlazorApp.Services
+@using BlazorApp.Models
+@inject IJSRuntime JS
+@inject SupabaseClientService SupabaseService
+@inject HttpClient Http
+
+<MudContainer MaxWidth="MaxWidth.False"
+              Style="
+                min-height:100vh;
+                display:flex;
+                justify-content:center;
+                align-items:flex-start;
+                background: linear-gradient(135deg, #e3f2fd, #fce4ec);
+                padding:40px;
+              ">
+
+    <MudStack Spacing="3" AlignItems="AlignItems.Center">
+
+        <!-- Search City -->
+        <MudTextField @bind-Value="searchCity"
+                      Placeholder="Search city..."
+                      Variant="Variant.Filled"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="mb-2"
+                      Style="width:320px;" />
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SearchCityWeather"
+                   Style="width:320px;">
+            🔍 Search
+        </MudButton>
+
+        <!-- Weather Cards -->
+        <MudGrid Justify="Justify.Center" Spacing="3">
+
+            <!-- Current Location Weather -->
+            <!-- Current Location Weather -->
+            <MudItem xs="12" sm="12" md="6">
+                <!-- Increased width on medium screens -->
+                <MudPaper Elevation="8"
+                          Style="padding:20px; border-radius:20px; background:#ffffffcc; backdrop-filter: blur(5px); text-align:center;">
+                    <MudText Typo="Typo.h6" Style="font-weight:700; color:#263238;">
+                        @currentWeather.City
+                    </MudText>
+                    <MudDivider Class="my-2" />
+                    <MudText Typo="Typo.h4" Style="font-weight:700; color:#0277bd;">
+                        @currentWeather.Temp
+                    </MudText>
+                    <MudText Typo="Typo.subtitle2" Style="color:#555; text-transform:capitalize;">
+                        @currentWeather.Desc
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="mt-1">🌍 Current Location</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Favourite Cities Weather -->
+            @foreach (var w in favouriteWeather)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudPaper Elevation="8"
+                              Style="padding:20px; border-radius:20px; background:#ffffffcc; backdrop-filter: blur(5px); text-align:center;">
+                        <MudText Typo="Typo.h6" Style="font-weight:700; color:#263238;">
+                            @w.City
+                        </MudText>
+                        <MudDivider Class="my-2" />
+                        <MudText Typo="Typo.h4" Style="font-weight:700; color:#0277bd;">
+                            @w.Temp
+                        </MudText>
+                        <MudText Typo="Typo.subtitle2" Style="color:#555; text-transform:capitalize;">
+                            @w.Desc
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="mt-1">⭐ Favourite City</MudText>
+                    </MudPaper>
+                </MudItem>
+            }
+
+            <!-- Searched City Weather -->
+            @if (!string.IsNullOrEmpty(searchedWeather.City))
+            {
+                <MudItem xs="12" sm="12" md="6">
+                    <!-- Increased width on medium screens -->
+                    <MudPaper Elevation="8"
+                              Style="padding:20px; border-radius:20px; background:#ffffffcc; backdrop-filter: blur(5px); text-align:center;">
+                        <MudText Typo="Typo.h6" Style="font-weight:700; color:#263238;">
+                            @searchedWeather.City
+                        </MudText>
+                        <MudDivider Class="my-2" />
+                        <MudText Typo="Typo.h4" Style="font-weight:700; color:#0277bd;">
+                            @searchedWeather.Temp
+                        </MudText>
+                        <MudText Typo="Typo.subtitle2" Style="color:#555; text-transform:capitalize;">
+                            @searchedWeather.Desc
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="mt-1">🔍 Searched City</MudText>
+                    </MudPaper>
+                </MudItem>
+            }
+
+        </MudGrid>
+    </MudStack>
+</MudContainer>
+
+@code {
+    private string searchCity = "";
+
+    private WeatherData currentWeather = new WeatherData
+    {
+        City = "Detecting location...",
+        Temp = "",
+        Desc = ""
+    };
+
+    private WeatherData searchedWeather = new WeatherData();
+    private List<WeatherData> favouriteWeather = new List<WeatherData>();
+
+    private const string API_KEY = "7e4f8bd1e3d3a0a63af723dc8ba27d74";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // 1️⃣ Get current location weather from JS
+            await JS.InvokeVoidAsync("getWeatherByLocation", DotNetObjectReference.Create(this));
+
+            // 2️⃣ Load favourite cities weather from Supabase
+            await LoadFavouriteCitiesWeather();
+        }
+    }
+
+    [JSInvokable]
+    public void SetWeather(string cityName, double temp, string desc)
+    {
+        currentWeather.City = $"📍 {cityName}";
+        currentWeather.Temp = $"{temp:F1} °C";
+        currentWeather.Desc = desc;
+        StateHasChanged();
+    }
+
+    private async Task LoadFavouriteCitiesWeather()
+    {
+        try
+        {
+            var session = SupabaseService.Client.Auth.CurrentSession;
+            if (session?.User?.Email == null)
+                return;
+
+            var user = await SupabaseService.Client
+                .From<User>()
+                .Where(u => u.Email == session.User.Email)
+                .Single();
+
+            if (user?.Cities != null && user.Cities.Count > 0)
+            {
+                foreach (var city in user.Cities)
+                {
+                    try
+                    {
+                        var url = $"https://api.openweathermap.org/data/2.5/weather?q={city}&units=metric&appid={API_KEY}";
+                        var response = await Http.GetFromJsonAsync<WeatherResponse>(url);
+                        if (response != null)
+                        {
+                            favouriteWeather.Add(new WeatherData
+                            {
+                                City = $"📍 {response.Name}",
+                                Temp = $"{response.Main.Temp:F1} °C",
+                                Desc = response.Weather[0].Description
+                            });
+                        }
+                    }
+                    catch { }
+                }
+                StateHasChanged();
+            }
+        }
+        catch { }
+    }
+
+    private async Task SearchCityWeather()
+    {
+        if (string.IsNullOrWhiteSpace(searchCity))
+            return;
+
+        try
+        {
+            var url = $"https://api.openweathermap.org/data/2.5/weather?q={searchCity.Trim()}&units=metric&appid={API_KEY}";
+            var response = await Http.GetFromJsonAsync<WeatherResponse>(url);
+
+            if (response != null)
+            {
+                searchedWeather.City = $"📍 {response.Name}";
+                searchedWeather.Temp = $"{response.Main.Temp:F1} °C";
+                searchedWeather.Desc = response.Weather[0].Description;
+                StateHasChanged();
+            }
+        }
+        catch
+        {
+            searchedWeather.City = "❌ City not found";
+            searchedWeather.Temp = "";
+            searchedWeather.Desc = "";
+        }
+    }
+
+    // Models
+    // Models
+    public class WeatherData
+    {
+        public string City { get; set; } = "";
+        public string Temp { get; set; } = "";
+        public string Desc { get; set; } = "";
+    }
+
+    public class WeatherResponse
+    {
+        public MainInfo Main { get; set; } = new();
+        public List<WeatherInfo> Weather { get; set; } = new();
+        public string Name { get; set; } = "";
+    }
+
+    public class MainInfo { public double Temp { get; set; } }
+    public class WeatherInfo { public string Description { get; set; } = ""; }
+}

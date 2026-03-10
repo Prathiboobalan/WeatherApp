@@ -1,0 +1,233 @@
+﻿@page "/user-dashboard"
+@using MudBlazor
+@using BlazorApp.Services
+@using BlazorApp.Models
+@inject SupabaseClientService SupabaseService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<MudContainer MaxWidth="MaxWidth.False"
+              Style="
+                min-height:100vh;
+                background: linear-gradient(135deg, #f6f3ff, #eef4ff);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+              ">
+
+    <MudPaper Elevation="12"
+              Style="
+                width:440px;
+                padding:34px;
+                border-radius:26px;
+                background: #ffffffcc;
+                backdrop-filter: blur(10px);
+              ">
+
+        @if (!isLoaded)
+        {
+            <div class="d-flex justify-center my-6">
+                <MudProgressCircular Indeterminate="true"
+                                     Color="Color.Primary"
+                                     Size="Size.Large" />
+            </div>
+        }
+        else
+        {
+            <!-- Avatar -->
+            <div style="display:flex; justify-content:center; margin-bottom:18px;">
+                <MudAvatar Size="Size.Large"
+                           Style="background:#c7d2fe; color:#3730a3;">
+                    @name.Substring(0, 1).ToUpper()
+                </MudAvatar>
+            </div>
+
+            <MudText Typo="Typo.h5"
+                     Align="Align.Center"
+                     Style="font-weight:600; color:#312e81;"
+                     GutterBottom>
+                Welcome, @name 👋
+            </MudText>
+
+            <MudText Typo="Typo.subtitle2"
+                     Align="Align.Center"
+                     Style="color:#6366f1;"
+                     GutterBottom>
+                User Dashboard
+            </MudText>
+
+            <MudDivider Class="my-4" />
+           
+
+            <!-- Email -->
+            <MudPaper Elevation="0"
+                      Style="
+                                padding:16px;
+                                border-radius:18px;
+                                background:#eef2ff;
+                                margin-top:16px;
+                                margin-bottom:14px;
+                              ">
+                <MudText Typo="Typo.subtitle2" Style="color:#4f46e5;">📧 Email</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500; color:#312e81;">
+                    @email
+                </MudText>
+            </MudPaper>
+
+            <!-- Role -->
+            <MudPaper Elevation="0"
+                      Style="
+                                padding:16px;
+                                border-radius:18px;
+                                background:#f0fdfa;
+                                margin-bottom:22px;
+                              ">
+                <MudText Typo="Typo.subtitle2" Style="color:#0f766e;">🔑 Role</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500; color:#115e59;">
+                    @role
+                </MudText>
+            </MudPaper>
+
+            <!-- Side by side: Favourite Cities & Current Weather -->
+            <MudGrid Spacing="2">
+
+                <!-- Favourite Cities -->
+                <MudItem xs="12" md="6">
+                    <MudPaper Elevation="0"
+                              Style="
+                                            padding:16px;
+                                            border-radius:18px;
+                                            background:#eef2ff;
+                                            margin-bottom:14px;
+                                          ">
+                        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.LocationCity" Color="Color.Primary" Size="Size.Large" />
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                                    Favourite Cities
+                                </MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight:500;">
+                                    @(string.IsNullOrWhiteSpace(favouriteCities) ? "No favourite cities added" : favouriteCities)
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Current Weather -->
+                <MudItem xs="12" md="6">
+                    <MudPaper Elevation="0"
+                              Style="
+                                            padding:16px;
+                                            border-radius:18px;
+                                            background:#fff0f6;
+                                            margin-bottom:14px;
+                                          ">
+                        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.WbSunny" Color="Color.Info" Size="Size.Large" />
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                                    Current Weather
+                                </MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight:500;">
+                                    @(string.IsNullOrEmpty(weatherCity) ? "Detecting location..." : $"{weatherCity}: {weatherTemp} — {weatherDesc}")
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+            </MudGrid>
+
+            <!-- Buttons -->
+            <MudButton FullWidth
+                       Size="Size.Large"
+                       Variant="Variant.Filled"
+                       Style="
+                                    border-radius:16px;
+                                    margin-bottom:12px;
+                                    font-weight:600;
+                                    background:#a5b4fc;
+                                    color:#1e1b4b;
+                               "
+                       Href="/profile">
+                ✏️ Edit Profile
+            </MudButton>
+
+            <MudButton FullWidth
+                       Size="Size.Large"
+                       Variant="Variant.Outlined"
+                       Style="
+                                    border-radius:16px;
+                                    font-weight:600;
+                                    color:#be123c;
+                                    border-color:#fda4af;
+                               "
+                       OnClick="Logout">
+                🚪 Logout
+            </MudButton>
+        }
+    </MudPaper>
+
+</MudContainer>
+
+@code {
+    private string name = "";
+    private string email = "";
+    private string role = "";
+    private string favouriteCities = "";
+    private bool isLoaded = false;
+
+    // Current weather
+    private string weatherCity = "";
+    private string weatherTemp = "";
+    private string weatherDesc = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = SupabaseService.Client.Auth.CurrentSession;
+
+        if (session?.User == null)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        email = session.User.Email ?? "";
+
+        // Get user from Supabase
+        var user = await SupabaseService.Client
+            .From<User>()
+            .Where(u => u.Email == email)
+            .Single();
+
+        if (user != null)
+        {
+            name = user.Name ?? email;
+            role = user.Role ?? "user";
+            favouriteCities = (user.Cities != null && user.Cities.Count > 0)
+                ? string.Join(", ", user.Cities)
+                : "";
+        }
+
+        isLoaded = true;
+
+        // Call JS to get current weather
+        await JS.InvokeVoidAsync("getWeatherByLocation", DotNetObjectReference.Create(this));
+    }
+
+    [JSInvokable]
+    public void SetWeather(string cityName, double temp, string desc)
+    {
+        weatherCity = cityName;
+        weatherTemp = $"{temp:F1} °C";
+        weatherDesc = desc;
+        StateHasChanged();
+    }
+
+    private async Task Logout()
+    {
+        await SupabaseService.Client.Auth.SignOut();
+        Nav.NavigateTo("/login");
+    }
+}

@@ -1,0 +1,181 @@
+﻿@page "/profile"
+@using MudBlazor
+@using BlazorApp.Models
+@using BlazorApp.Services
+@inject SupabaseClientService SupabaseService
+@inject NavigationManager Nav
+
+<div style="
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background: linear-gradient(135deg, #43cea2,pink);
+    padding:20px;
+">
+
+    <MudPaper Class="p-8 max-w-md w-full rounded-3xl"
+              Elevation="10"
+              Style="
+                  background:#f5f7fa;
+                  border-radius:24px;
+                  display:flex;
+                  flex-direction:column;
+                  width:350px;
+              ">
+
+        <MudText Typo="Typo.h4"
+                 Align="Align.Center"
+                 Class="mb-2"
+                 Style="color:#2c3e50; font-weight:700;">
+            👤 My Profile
+        </MudText>
+
+        <MudText Typo="Typo.subtitle2"
+                 Align="Align.Center"
+                 Class="mb-6"
+                 Style="color:black;">
+            Update your personal information
+        </MudText>
+
+        @if (!isLoaded)
+        {
+            <MudProgressCircular Color="Color.Primary"
+                                 Indeterminate
+                                 Size="Size.Large"
+                                 Class="mx-auto" />
+        }
+        else
+        {
+            <!-- CENTERED + FIXED WIDTH -->
+            <MudStack AlignItems="AlignItems.Center">
+
+                <MudStack Style="width:320px;">
+
+                    <MudTextField @bind-Value="name"
+                                  Label="Full Name"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-4"
+                                  Style="background:#e1e7f5; border-radius:12px;" />
+
+                    <MudTextField @bind-Value="email"
+                                  Label="Email"
+                                  Variant="Variant.Outlined"
+                                  Disabled="true"
+                                  Class="mb-4"
+                                  Style="background:#e1e7f5; border-radius:12px;" />
+
+                    <MudTextField @bind-Value="citiesInput"
+                                  Label="Cities"
+                                  Placeholder="Enter cities separated by commas"
+                                  Variant="Variant.Outlined"
+                                  HelperText="Ex: Chennai, Mumbai, Bangalore"
+                                  Class="mb-5"
+                                  Style="background:#e1e7f5; border-radius:12px;" />
+
+                </MudStack>
+
+            </MudStack>
+
+            <!-- CENTER BUTTON -->
+            <MudStack AlignItems="AlignItems.Center">
+                <MudButton Variant="Variant.Filled"
+                           Size="Size.Large"
+                           Style="
+                           background:#6c8cff;
+                           color:white;
+                           border-radius:14px;
+                           font-weight:600;
+                           width:220px;
+                           height:48px;"
+                           OnClick="UpdateProfile">
+                    💾 Save Changes
+                </MudButton>
+            </MudStack>
+
+            @if (!string.IsNullOrEmpty(message))
+            {
+                <MudText Align="Align.Center"
+                         Class="mt-4"
+                         Style="font-weight:600; color:#16a085;">
+                    @message
+                </MudText>
+            }
+        }
+
+
+    </MudPaper>
+</div>
+
+@code {
+    private string name = "";
+    private string email = "";
+    private string citiesInput = "";
+    private bool isLoaded = false;
+    private string message = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = SupabaseService.Client.Auth.CurrentSession;
+        if (session?.User == null)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        email = session.User.Email ?? "";
+
+        try
+        {
+            var user = await SupabaseService.Client
+                .From<User>()
+                .Where(u => u.Email == email)
+                .Single();
+
+            name = user?.Name ?? "";
+            citiesInput = string.Join(", ", user?.Cities ?? new List<string>());
+        }
+        catch
+        {
+            name = "";
+            citiesInput = "";
+        }
+
+        isLoaded = true;
+    }
+
+    private async Task UpdateProfile()
+    {
+        try
+        {
+            var session = SupabaseService.Client.Auth.CurrentSession;
+            if (session?.User == null)
+            {
+                Nav.NavigateTo("/login");
+                return;
+            }
+
+            var cities = citiesInput
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(c => c.Trim())
+                .ToList();
+
+            var userToUpdate = new User
+            {
+                Email = session.User.Email!,
+                Name = name,
+                Cities = cities
+            };
+
+            await SupabaseService.Client
+                .From<User>()
+                .Upsert(userToUpdate);
+
+            message = "✅ Profile updated successfully!";
+        }
+        catch (Exception ex)
+        {
+            message = $"❌ Update failed: {ex.Message}";
+        }
+    }
+}

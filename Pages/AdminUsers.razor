@@ -1,0 +1,219 @@
+﻿@page "/admin/users"
+@using MudBlazor
+@using BlazorApp.Models
+@using System.Net.Http.Headers
+@using System.Text
+@using System.Text.Json
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<MudPaper Class="p-6 mx-auto mt-8 rounded-2xl"
+          Elevation="8"
+          Style="max-width:1100px; background:#ffffff;">
+
+    <!-- Header -->
+    <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+        <MudIcon Icon="@Icons.Material.Filled.People"
+                 Color="Color.Primary"
+                 Size="Size.Large" />
+        <MudText Typo="Typo.h4" Style="font-weight:700;">
+            Admin – User Management
+        </MudText>
+    </MudStack>
+
+    <MudText Typo="Typo.subtitle2"
+             Class="mb-4"
+             Color="Color.Secondary">
+        View and manage registered users
+    </MudText>
+
+    <MudDivider Class="mb-4" />
+
+    @if (isLoading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Class="mt-8">
+            <MudProgressCircular Indeterminate Size="Size.Large" />
+            <MudText Class="mt-2">Loading users...</MudText>
+        </MudStack>
+    }
+    else if (!string.IsNullOrEmpty(error))
+    {
+        <MudAlert Severity="Severity.Error">@error</MudAlert>
+    }
+    else if (users.Count == 0)
+    {
+        <MudAlert Severity="Severity.Warning">
+            No users found in the database
+        </MudAlert>
+    }
+    else
+    {
+        <MudStack AlignItems="AlignItems.Center" Class="mt-4">
+
+            <MudTable Items="users"
+                      Hover
+                      Dense
+                      Bordered
+                      Striped
+                      Style="width:100%; max-width:900px;">
+
+                <HeaderContent>
+                    <MudTh Style="color:blanchedalmond; font-weight:800; font-size:15px;">
+                        Name
+                    </MudTh>
+                    <MudTh Style="color:blanchedalmond; font-weight:800; font-size:15px;">
+                        Email
+                    </MudTh>
+                    <MudTh Style="color:blanchedalmond; font-weight:800; font-size:15px;">
+                        Role
+                    </MudTh>
+                    <MudTh Style="color:blanchedalmond; font-weight:800; font-size:15px;">
+                        Cities
+                    </MudTh>
+                    <MudTh Style="color:blanchedalmond; font-weight:800; font-size:15px;">
+                        Actions
+                    </MudTh>
+                </HeaderContent>
+
+
+                <RowTemplate Context="u">
+                    <MudTd>
+                        <MudText Style="font-weight:600">@u.Name</MudText>
+                    </MudTd>
+
+                    <MudTd>@u.Email</MudTd>
+
+                    <MudTd>
+                        <MudSelect T="string"
+                                   Dense
+                                   Variant="Variant.Outlined"
+                                   @bind-Value="u.Role"
+                                   Style="min-width:120px">
+
+                            <MudSelectItem T="string" Value="@("admin")">
+                                Admin
+                            </MudSelectItem>
+
+                            <MudSelectItem T="string" Value="@("user")">
+                                User
+                            </MudSelectItem>
+
+                        </MudSelect>
+
+                    </MudTd>
+
+                    <MudTd>
+                        @(u.Cities != null && u.Cities.Count > 0
+                                            ? string.Join(", ", u.Cities)
+                                            : "—")
+                </MudTd>
+
+                    <MudTd>
+                        <MudButton Size="Size.Small"
+                                   Color="Color.Primary"
+                                   Variant="Variant.Filled"
+                                   OnClick="() => UpdateUserRole(u)">
+                            Save
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+
+            </MudTable>
+
+        </MudStack>
+
+        }
+
+    <MudDivider Class="my-4" />
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-3">
+            @successMessage
+        </MudAlert>
+    }
+    <MudButton 
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="@(() => Nav.NavigateTo("/admindashboard"))">
+        
+    </MudButton>
+
+</MudPaper>
+
+@code {
+
+    private List<User> users = new();
+    private bool isLoading = true;
+    private string? error;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersViaRest();
+    }
+
+    private async Task LoadUsersViaRest()
+    {
+        try
+        {
+            var supabaseUrl = "https://irsvncfxbhcykbukfplm.supabase.co";
+            var anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlyc3ZuY2Z4YmhjeWtidWtmcGxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwODc2NTIsImV4cCI6MjA3NzY2MzY1Mn0.LWA_ssv4Gn66XxWoSg-QdbE63HvuqgDBPX9grDArCh8";
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("apikey", anonKey);
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", anonKey);
+
+            var response = await Http.GetAsync($"{supabaseUrl}/rest/v1/users");
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync();
+
+            users = JsonSerializer.Deserialize<List<User>>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            ) ?? new();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task UpdateUserRole(User user)
+    {
+        successMessage = null;
+        try
+        {
+            var supabaseUrl = "https://irsvncfxbhcykbukfplm.supabase.co";
+            var anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlyc3ZuY2Z4YmhjeWtidWtmcGxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwODc2NTIsImV4cCI6MjA3NzY2MzY1Mn0.LWA_ssv4Gn66XxWoSg-QdbE63HvuqgDBPX9grDArCh8";
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("apikey", anonKey);
+            Http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", anonKey);
+
+            var payload = new { role = user.Role?.Trim().ToLower() };
+            var json = JsonSerializer.Serialize(payload);
+
+            var request = new HttpRequestMessage(
+                HttpMethod.Patch,
+                $"{supabaseUrl}/rest/v1/users?email=eq.{user.Email}"
+            )
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+
+            var response = await Http.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            successMessage = "Saved successfully";
+        }
+        catch (Exception ex)
+        {
+            error = "Failed to update role: " + ex.Message;
+        }
+    }
+}

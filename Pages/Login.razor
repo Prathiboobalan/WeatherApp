@@ -1,0 +1,149 @@
+﻿@using BlazorApp.Models
+@page "/login"
+@inject ISnackbar Snackbar
+@using MudBlazor
+@using BlazorApp.Services
+@inject SupabaseClientService SupabaseService
+@inject NavigationManager Nav
+@inject HttpClient Http
+
+
+<div style="
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background: linear-gradient(135deg, #43cea2, #185a9d);
+">
+
+    <MudPaper Elevation="12"
+              Class="p-6 rounded-2xl"
+              Style="width:420px; background:white;">
+
+        <MudText Typo="Typo.h4"
+                 Align="Align.Center"
+                 Style="font-weight:700;">
+            🔐 Login
+        </MudText>
+
+        <MudText Align="Align.Center"
+                 Typo="Typo.subtitle2"
+                 Class="mb-4">
+            Sign in to continue
+        </MudText>
+
+        <!-- CENTERED INPUTS -->
+        <MudStack AlignItems="AlignItems.Center">
+
+            <MudStack Style="width:380px;">
+
+                <MudTextField @bind-Value="email"
+                              Label="Email"
+                              Variant="Variant.Outlined"
+                              StartIcon="@Icons.Material.Filled.Email"
+                              Class="mb-3" />
+
+                <MudTextField @bind-Value="password"
+                              Label="Password"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Password"
+                              StartIcon="@Icons.Material.Filled.Lock"
+                              Class="mb-4" />
+
+            </MudStack>
+
+        </MudStack>
+
+        <!-- CENTERED BUTTON -->
+        <MudStack AlignItems="AlignItems.Center" Class="mt-2">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="LoginUser"
+                       Style="border-radius:12px; font-weight:600; width:200px;">
+                Login
+            </MudButton>
+        </MudStack>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <MudText Align="Align.Center"
+                     Color="Color.Error"
+                     Class="mt-3">
+                @message
+            </MudText>
+        }
+
+        <MudDivider Class="my-4" />
+
+        <MudText Align="Align.Center">
+            Don’t have an account?
+            <MudLink Href="/register">Register</MudLink>
+        </MudText>
+
+
+    </MudPaper>
+</div>
+
+@code {
+    private string email = string.Empty;
+    private string password = string.Empty;
+    private string message = string.Empty;
+
+    private async Task LoginUser()
+    {
+        try
+        {
+            var response = await SupabaseService.Client
+                .Auth
+                .SignIn(email, password);
+
+            if (response?.User == null)
+            {
+                Snackbar.Add("❌ Invalid email or password", Severity.Error);
+                return;
+            }
+
+            // 🔹 FETCH ROLE FROM USERS TABLE
+            var supabaseUrl = "https://irsvncfxbhcykbukfplm.supabase.co";
+            var anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlyc3ZuY2Z4YmhjeWtidWtmcGxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwODc2NTIsImV4cCI6MjA3NzY2MzY1Mn0.LWA_ssv4Gn66XxWoSg-QdbE63HvuqgDBPX9grDArCh8";
+
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("apikey", anonKey);
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", anonKey);
+
+            var roleResponse = await Http.GetAsync(
+                $"{supabaseUrl}/rest/v1/users?email=eq.{email}&select=role");
+
+            roleResponse.EnsureSuccessStatusCode();
+
+            var json = await roleResponse.Content.ReadAsStringAsync();
+            var result = System.Text.Json.JsonSerializer.Deserialize<List<User>>(
+                json,
+                new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+            var role = result?.FirstOrDefault()?.Role ?? "user";
+
+            Snackbar.Add("✅ Login successful!", Severity.Success);
+
+            await Task.Delay(1000);
+
+            // 🔹 ROLE-BASED NAVIGATION
+            if (role == "admin")
+                Nav.NavigateTo("/admindashboard");
+            else
+                Nav.NavigateTo("/user-dashboard");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"❌ Login failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+}
+
+    }
+}

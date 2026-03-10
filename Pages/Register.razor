@@ -1,0 +1,207 @@
+﻿@using MudBlazor
+@using BlazorApp.Services
+@using BlazorApp.Models
+@using Microsoft.AspNetCore.Components.Web
+@inject ISnackbar Snackbar
+@page "/register"
+@inject SupabaseClientService SupabaseService
+@inject NavigationManager Nav
+
+<div style="
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+    padding:20px;">
+
+    <MudPaper Class="p-8 rounded-3xl"
+              Style="max-width:650px; width:100%;"
+              Elevation="8">
+
+
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4" Style="color:#5f6caf;">
+            ✨ Create Account
+        </MudText>
+
+        <MudStack AlignItems="AlignItems.Center">
+
+            <MudStack Style="width:420px;">
+
+                <MudTextField @bind-Value="name"
+                              Label="Full Name"
+                              Variant="Variant.Filled"
+                              Class="mb-3"
+                              Style="background:#f6f7fb;" />
+
+                <MudTextField @bind-Value="email"
+                              Label="Email Address"
+                              Variant="Variant.Filled"
+                              Class="mb-3"
+                              Style="background:#f6f7fb;" />
+
+                <MudTextField @bind-Value="password"
+                              Label="Password"
+                              InputType="InputType.Password"
+                              Variant="Variant.Filled"
+                              Class="mb-3"
+                              Style="background:#f6f7fb;" />
+
+                <MudTextField @bind-Value="confirmPassword"
+                              Label="Confirm Password"
+                              InputType="InputType.Password"
+                              Variant="Variant.Filled"
+                              Class="mb-4"
+                              Style="background:#f6f7fb;" />
+
+                <MudTextField @bind-Value="currentCity"
+                              Label="Type a City and Press Enter"
+                              Variant="Variant.Filled"
+                              Class="mb-2"
+                              Style="background:#f6f7fb;"
+                              OnKeyDown="AddCityOnEnter" />
+
+                <MudChipSet T="string" Class="mb-4">
+                    @foreach (var c in cities)
+                    {
+                        <MudChip T="string"
+                                 Closeable="true"
+                                 OnClose="EventCallback.Factory.Create(this, () => RemoveCity(c))"
+                                 Style="background:#e8ecff; color:#4a5fd1;">
+                            @c
+                        </MudChip>
+                    }
+                </MudChipSet>
+
+            </MudStack>
+
+        </MudStack>
+
+
+        <MudStack AlignItems="AlignItems.Center" Class="mt-3">
+            <MudButton Variant="Variant.Filled"
+                       OnClick="RegisterUser"
+                       Style="
+                 background:#5f6caf;
+                 color:white;
+                 font-weight:700;
+                 border-radius:14px;
+                 width:220px;
+                 height:48px;">
+                Register 🚀
+            </MudButton>
+        </MudStack>
+
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <MudText Align="Align.Center"
+                     Class="mt-3"
+                     Style="color:#d32f2f; font-weight:600;">
+                @message
+            </MudText>
+        }
+    </MudPaper>
+</div>
+
+@code {
+    private string name = "";
+    private string email = "";
+    private string password = "";
+    private string confirmPassword = "";
+    private string message = "";
+
+    private string currentCity = "";
+    private List<string> cities = new();
+
+    private void AddCityOnEnter(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(currentCity))
+        {
+            var city = currentCity.Trim();
+            if (!cities.Any(c => c.Equals(city, StringComparison.OrdinalIgnoreCase)))
+                cities.Add(city);
+
+            currentCity = "";
+        }
+    }
+
+    private void RemoveCity(string city)
+    {
+        cities.Remove(city);
+    }
+
+    private async Task RegisterUser()
+    {
+        // 🔹 EMAIL VALIDATION
+        if (!email.EndsWith("@gmail.com"))
+        {
+            message = "❌ Email must end with @gmail.com";
+            return;
+        }
+
+        // 🔹 PASSWORD VALIDATION
+        if (password.Length < 6 ||
+            !password.Any(char.IsUpper) ||
+            !password.Any(char.IsLower))
+        {
+            message = "❌ Password must be 6+ chars with uppercase & lowercase";
+            return;
+        }
+
+        if (password != confirmPassword)
+        {
+            message = "❌ Passwords do not match";
+            return;
+        }
+
+        if (cities.Count == 0)
+        {
+            message = "❌ Select at least one city";
+            return;
+        }
+
+        try
+        {
+            var result = await SupabaseService.Client.Auth.SignUp(email, password);
+
+            if (result?.User == null)
+            {
+                message = "❌ Registration failed";
+                return;
+            }
+
+            var user = new User
+            {
+                Name = name,
+                Email = email,
+                Password = password,
+                Cities = cities
+            };
+
+            await SupabaseService.Client
+    .From<User>()
+    .Insert(user);
+
+            // ✅ Snackbar success message
+            Snackbar.Add(
+                "🎉 Registration successful! Redirecting to login...",
+                Severity.Success,
+                config =>
+                {
+                    config.ShowCloseIcon = true;
+                    config.VisibleStateDuration = 3000;
+                });
+
+            // small delay so user sees snackbar
+            await Task.Delay(1500);
+
+            Nav.NavigateTo("/login");
+
+        }
+        catch (Exception ex)
+        {
+            message = $"❌ Error: {ex.Message}";
+        }
+    }
+}

@@ -1,0 +1,222 @@
+﻿@page "/admindashboard"
+@using MudBlazor
+@using BlazorApp.Services
+@using BlazorApp.Models
+@inject SupabaseClientService SupabaseService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div style="
+    min-height:100vh;
+    background: linear-gradient(135deg, #fdfbfb, #ebedee);
+    padding:40px;
+">
+
+    <MudPaper Elevation="10"
+              Class="mx-auto rounded-2xl"
+              Style="max-width:900px; padding:32px; background:white;">
+
+        <!-- Header -->
+        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+            <MudAvatar Color="Color.Primary" Size="Size.Large">
+                <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" />
+            </MudAvatar>
+
+            <div>
+                <MudText Typo="Typo.h4" Style="font-weight:700;">
+                    Admin Dashboard
+                </MudText>
+                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                    System overview & account details
+                </MudText>
+            </div>
+        </MudStack>
+
+        <MudDivider Class="my-4" />
+
+        @if (!isLoaded)
+        {
+            <!-- Loading -->
+            <MudStack AlignItems="AlignItems.Center" Class="mt-8">
+                <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+                <MudText Class="mt-2" Color="Color.Secondary">
+                    Loading admin data...
+                </MudText>
+            </MudStack>
+        }
+        else if (!isAdmin)
+        {
+            <!-- Unauthorized -->
+            <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+                <MudText Typo="Typo.subtitle1">
+                    🚫 Access Denied
+                </MudText>
+                <MudText Typo="Typo.body2">
+                    You do not have permission to access this page.
+                </MudText>
+            </MudAlert>
+        }
+        else
+        {
+            <!-- Admin Info Cards -->
+            <MudGrid Spacing="3">
+
+                <!-- Admin Name -->
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="p-4 rounded-xl" Style="background:#f4f7ff;">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                                👤 Admin Name
+                            </MudText>
+                            <MudText Typo="Typo.h6" Style="font-weight:600;">
+                                @name
+                            </MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Email -->
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="p-4 rounded-xl" Style="background:#f0fdf9;">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                                📧 Email
+                            </MudText>
+                            <MudText Typo="Typo.body1">
+                                @email
+                            </MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Role -->
+                <MudItem xs="12">
+                    <MudPaper Class="p-4 rounded-xl" Style="background:#fff7ed;">
+                        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Security" Color="Color.Warning" Size="Size.Large" />
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                                    Role
+                                </MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:700; color:#b45309;">
+                                    ADMIN
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Favourite Cities & Current Weather Side by Side -->
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="p-4 rounded-xl" Style="background:#eef2ff;">
+                        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.LocationCity" Color="Color.Primary" Size="Size.Large" />
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                                    Favourite Cities
+                                </MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight:500;">
+                                    @(string.IsNullOrWhiteSpace(favouriteCities) ? "No favourite cities added" : favouriteCities)
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="p-4 rounded-xl" Style="background:#fff0f6;">
+                        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.WbSunny" Color="Color.Info" Size="Size.Large" />
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Color="Color.Secondary">
+                                    Current Weather
+                                </MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight:500;">
+                                    @(string.IsNullOrEmpty(weatherCity) ? "Detecting location..." : $"{weatherCity}: {weatherTemp} — {weatherDesc}")
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <MudDivider Class="my-5" />
+
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.People"
+                               Style="border-radius:12px; font-weight:600;"
+                               OnClick="@(() => Nav.NavigateTo("/admin/users"))">
+                        Manage Users
+                    </MudButton>
+                </MudStack>
+
+            </MudGrid>
+        }
+
+    </MudPaper>
+</div>
+
+@code {
+    private string name = "Admin";
+    private string email = "";
+    private string favouriteCities = "";
+    private bool isAdmin = false;
+    private bool isLoaded = false;
+
+    // Current weather data
+    private string weatherCity = "";
+    private string weatherTemp = "";
+    private string weatherDesc = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var session = SupabaseService.Client.Auth.CurrentSession;
+            if (session?.User == null)
+            {
+                Nav.NavigateTo("/login", true);
+                return;
+            }
+
+            email = session.User.Email ?? "";
+
+            var result = await SupabaseService.Client
+                .From<User>()
+                .Where(u => u.Email == email)
+                .Single();
+
+            if (result == null)
+            {
+                Nav.NavigateTo("/login", true);
+                return;
+            }
+
+            name = result.Name ?? "Admin";
+            favouriteCities = (result.Cities != null && result.Cities.Count > 0)
+                ? string.Join(", ", result.Cities)
+                : "";
+            isAdmin = string.Equals(result.Role, "admin", StringComparison.OrdinalIgnoreCase);
+
+            isLoaded = true;
+
+            // Call JS to get weather
+            await JS.InvokeVoidAsync("getWeatherByLocation", DotNetObjectReference.Create(this));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error loading admin dashboard: " + ex.Message);
+            Nav.NavigateTo("/login", true);
+        }
+    }
+
+    [JSInvokable]
+    public void SetWeather(string cityName, double temp, string desc)
+    {
+        weatherCity = cityName;
+        weatherTemp = $"{temp:F1} °C";
+        weatherDesc = desc;
+        StateHasChanged();
+    }
+}

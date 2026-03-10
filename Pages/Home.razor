@@ -1,0 +1,145 @@
+﻿@page "/"
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.False" Class="hero-container">
+
+    <!-- HERO SECTION -->
+    <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="hero-section">
+
+        <MudText Typo="Typo.h3" Class="hero-title">
+            🌤 Smart Weather & User Platform
+        </MudText>
+
+        <MudText Typo="Typo.h6" Class="hero-subtitle">
+            Experience real-time weather insights, secure authentication,
+            and a beautifully designed modern web application.
+        </MudText>
+
+        <MudStack Direction="Row" Spacing="2" Class="mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Href="/weather">
+                Explore Weather
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       Href="/login">
+                Get Started
+            </MudButton>
+        </MudStack>
+
+    </MudStack>
+
+    <!-- FEATURES SECTION -->
+    <MudContainer MaxWidth="MaxWidth.Large" Class="features-section">
+
+        <MudGrid Spacing="4">
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="feature-card" Elevation="4">
+                    <MudIcon Icon="@Icons.Material.Filled.Cloud"
+                             Size="Size.Large"
+                             Color="Color.Info" />
+                    <MudText Typo="Typo.h6" Class="mt-2">
+                        Real-Time Weather
+                    </MudText>
+                    <MudText Typo="Typo.body2">
+                        Get accurate live weather updates for your location
+                        and favourite cities worldwide.
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="feature-card" Elevation="4">
+                    <MudIcon Icon="@Icons.Material.Filled.Security"
+                             Size="Size.Large"
+                             Color="Color.Success" />
+                    <MudText Typo="Typo.h6" Class="mt-2">
+                        Secure Authentication
+                    </MudText>
+                    <MudText Typo="Typo.body2">
+                        Modern and secure login system with protected
+                        user sessions and data handling.
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="feature-card" Elevation="4">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoGraph"
+                             Size="Size.Large"
+                             Color="Color.Primary" />
+                    <MudText Typo="Typo.h6" Class="mt-2">
+                        Smart UI Experience
+                    </MudText>
+                    <MudText Typo="Typo.body2">
+                        Clean, responsive and interactive design built
+                        using Blazor WebAssembly and MudBlazor.
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+
+        </MudGrid>
+
+    </MudContainer>
+
+    <!-- FOOTER -->
+    <MudText Align="Align.Center"
+             Typo="Typo.caption"
+             Class="footer-text">
+        Built with ❤️ using Blazor WebAssembly & MudBlazor
+    </MudText>
+
+</MudContainer>
+
+
+<style>
+
+    .hero-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        padding: 60px 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .hero-section {
+        text-align: center;
+        color: white;
+        margin-bottom: 60px;
+    }
+
+    .hero-title {
+        font-weight: 800;
+    }
+
+    .hero-subtitle {
+        max-width: 700px;
+    }
+
+    .features-section {
+        margin-top: 40px;
+    }
+
+    .feature-card {
+        padding: 30px;
+        text-align: center;
+        border-radius: 20px;
+        transition: 0.3s ease-in-out;
+    }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+    .footer-text {
+        margin-top: 60px;
+        color: white;
+        opacity: 0.9;
+    }
+
+</style>
