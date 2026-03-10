@@ -10,4 +10,5 @@ WORKDIR /app
 COPY --from=build /app .
 
 EXPOSE 8080
-ENTRYPOINT ["dotnet", "BlazorApp.dll"]
+ENTRYPOINT ["dotnet", "WeatherApp.dll"]
+
