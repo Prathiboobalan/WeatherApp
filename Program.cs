@@ -5,8 +5,7 @@ using BlazorApp.Services;
 using BlazorApp;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
-// Add this line
-builder.WebHost.UseUrls("http://0.0.0.0:8080");
+
 
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
